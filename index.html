@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="theme-color" content="#0a0a0c">
+<title>For GRC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="vendor/leaflet.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤍</text></svg>">
+<style>
+/* ============================================================
+   FOR GRC / 21.09.2026
+   ============================================================ */
+
+:root{
+  --bg:#0a0a0c;
+  --bg-2:#101015;
+  --ink:#f4f1ea;
+  --ink-dim:#a8a49c;
+  --muted:#6e6b65;
+  --em:#3ea77a;
+  --em-soft:#8fd9b8;
+  --gold:#c9a961;
+  --line:rgba(244,241,234,.12);
+  --ease:cubic-bezier(.22,.61,.36,1);
+  --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --serif:'Cormorant Garamond',Georgia,'Times New Roman',serif;
+}
+
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+
+html,body{
+  height:100%;
+  overflow:hidden;
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--sans);
+  font-weight:300;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+  overscroll-behavior:none;
+}
+body{position:fixed;inset:0;width:100%}
+
+body::before{
+  content:'';
+  position:fixed;inset:0;
+  background:
+    radial-gradient(90vw 70vh at 50% -10%, rgba(62,167,122,.13), transparent 62%),
+    radial-gradient(70vw 50vh at 12% 108%, rgba(201,169,97,.07), transparent 60%);
+  pointer-events:none;z-index:0;
+}
+body::after{
+  content:'';
+  position:fixed;inset:-50%;
+  opacity:.035;pointer-events:none;z-index:60;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation:grain 7s steps(6) infinite;
+}
+@keyframes grain{
+  0%,100%{transform:translate(0,0)}20%{transform:translate(-3%,2%)}
+  40%{transform:translate(2%,-3%)}60%{transform:translate(-2%,-2%)}80%{transform:translate(3%,1%)}
+}
+
+/* ============================================================
+   SHELL
+   ============================================================ */
+#stage{position:relative;height:100%;width:100%;z-index:1}
+
+.chapter{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;
+  padding:calc(env(safe-area-inset-top) + 58px) 22px calc(env(safe-area-inset-bottom) + 84px);
+  opacity:0;visibility:hidden;transform:translateY(14px);
+  transition:opacity .62s var(--ease), transform .62s var(--ease), visibility 0s linear .62s;
+  will-change:opacity,transform;
+}
+.chapter.live{
+  opacity:1;visibility:visible;transform:none;
+  transition:opacity .72s var(--ease) .1s, transform .72s var(--ease) .1s, visibility 0s;
+}
+.chapter.scrolls{
+  overflow-y:auto;overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;overscroll-behavior:contain;
+  display:block;
+  padding-bottom:calc(env(safe-area-inset-bottom) + 104px);
+}
+.chapter.centred{align-items:center;justify-content:center;text-align:center}
+
+#scrimTop,#scrimBot{
+  position:fixed;left:0;right:0;pointer-events:none;z-index:38;
+  opacity:0;transition:opacity .45s var(--ease);
+}
+#scrimTop{top:0;height:calc(env(safe-area-inset-top) + 66px);
+  background:linear-gradient(180deg,var(--bg) 26%,rgba(10,10,12,.82) 62%,transparent)}
+#scrimBot{bottom:0;height:calc(env(safe-area-inset-bottom) + 118px);
+  background:linear-gradient(0deg,var(--bg) 30%,rgba(10,10,12,.86) 64%,transparent)}
+body.scrim #scrimTop,body.scrim #scrimBot{opacity:1}
+
+#rail{
+  position:fixed;top:calc(env(safe-area-inset-top) + 20px);
+  left:22px;right:22px;display:flex;gap:5px;z-index:40;
+  opacity:0;transition:opacity .5s ease;pointer-events:none;
+}
+#rail.show{opacity:1}
+#rail i{flex:1;height:1.5px;background:rgba(244,241,234,.14);border-radius:2px;overflow:hidden}
+#rail i b{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--em),var(--em-soft));transition:width .5s var(--ease)}
+#rail i.done b{width:100%}
+#rail i.at b{width:100%;background:var(--gold)}
+
+#nav{
+  position:fixed;bottom:calc(env(safe-area-inset-bottom) + 22px);
+  left:0;right:0;display:flex;align-items:center;justify-content:center;gap:18px;
+  z-index:45;opacity:0;transition:opacity .5s ease;pointer-events:none;
+}
+#nav.show{opacity:1;pointer-events:auto}
+.navbtn{
+  appearance:none;border:1px solid var(--line);
+  background:rgba(10,10,12,.55);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  color:var(--ink-dim);width:46px;height:46px;border-radius:50%;
+  font-size:19px;font-family:var(--serif);display:grid;place-items:center;
+  cursor:pointer;transition:.28s var(--ease);
+}
+.navbtn:active{transform:scale(.9);border-color:var(--em);color:var(--em-soft)}
+.navbtn[disabled]{opacity:.22;pointer-events:none}
+#navlabel{font-size:9.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);min-width:96px;text-align:center;font-weight:400}
+
+.eyebrow{font-size:9.5px;letter-spacing:.34em;text-transform:uppercase;color:var(--em);font-weight:400;margin-bottom:20px}
+.rule{width:34px;height:1px;background:var(--gold);opacity:.5;margin:26px auto}
+
+/* ============================================================
+   0 / GATE
+   ============================================================ */
+#gate{cursor:pointer;background:var(--bg)}
+#gate .mono{
+  font-family:var(--serif);font-size:clamp(76px,27vw,140px);
+  letter-spacing:.1em;line-height:1;
+  background:linear-gradient(175deg,var(--ink) 20%,var(--em-soft) 130%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;padding-left:.1em;
+}
+#gate .mono span{display:inline-block;opacity:0;transform:translateY(22px);animation:riseIn 1.1s var(--ease) forwards}
+#gate .mono span:nth-child(2){animation-delay:.16s}
+#gate .mono span:nth-child(3){animation-delay:.32s}
+@keyframes riseIn{to{opacity:1;transform:none}}
+#gate .sub{opacity:0;animation:fadeUp 1.2s var(--ease) 1.1s forwards;font-size:13px;color:var(--ink-dim);font-family:var(--serif);font-style:italic}
+#gate .tap{opacity:0;animation:fadeUp 1.2s var(--ease) 2s forwards, pulse 3.4s ease-in-out 3.4s infinite;
+  margin-top:54px;font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:var(--muted)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes pulse{0%,100%{opacity:.45}50%{opacity:1}}
+
+/* ============================================================
+   1 / BIRTHDAY
+   ============================================================ */
+#hello{padding:0!important;overflow:hidden}
+#hello .shot{
+  position:absolute;inset:0;
+  background:url('img/17.jpg') center 42%/cover no-repeat;
+  transform:scale(1.1);animation:slowPush 16s ease-out forwards;
+}
+@keyframes slowPush{to{transform:scale(1)}}
+#hello .veil{
+  position:absolute;inset:0;
+  background:linear-gradient(180deg,rgba(10,10,12,.62) 0%,rgba(10,10,12,.12) 30%,rgba(10,10,12,.55) 62%,rgba(10,10,12,.94) 84%,var(--bg) 100%);
+}
+#hello .words{position:absolute;left:26px;right:26px;bottom:calc(env(safe-area-inset-bottom) + 108px);text-align:left}
+#hello h1{font-family:var(--serif);font-size:clamp(44px,13vw,70px);font-weight:300;line-height:.98;letter-spacing:-.02em;
+  text-shadow:0 2px 30px rgba(0,0,0,.6)}
+#hello h1 em{font-style:italic;color:var(--em-soft)}
+#hello .meta{margin-top:20px;display:flex;align-items:center;gap:12px;font-size:10px;letter-spacing:.26em;text-transform:uppercase;color:var(--ink-dim)}
+#hello .meta b{color:var(--gold);font-weight:400}
+#hello .meta s{flex:0 0 26px;height:1px;background:var(--line);text-decoration:none}
+
+.dust{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.dust i{position:absolute;width:2px;height:2px;border-radius:50%;background:var(--gold);opacity:0;animation:drift linear infinite}
+@keyframes drift{0%{opacity:0;transform:translateY(0) scale(.5)}12%{opacity:.85}88%{opacity:.6}100%{opacity:0;transform:translateY(-105vh) scale(1.1)}}
+
+/* ============================================================
+   2 / TIMELINE
+   ============================================================ */
+#story .head{padding:4px 0 42px;text-align:center}
+#story h2{font-family:var(--serif);font-size:38px;font-weight:300;line-height:1.1}
+#story .head p{margin-top:14px;font-size:13px;color:var(--muted);line-height:1.6}
+
+.frame{margin:0 0 54px;opacity:0;transform:translateY(30px);transition:opacity .9s var(--ease),transform .9s var(--ease)}
+.frame.seen{opacity:1;transform:none}
+.frame .pic{position:relative;border-radius:3px;overflow:hidden;background:var(--bg-2);box-shadow:0 22px 54px rgba(0,0,0,.66)}
+.frame .pic img{display:block;width:100%;height:auto;opacity:0;transition:opacity .7s ease}
+.frame .pic img.up{opacity:1}
+.frame .pic::after{content:'';position:absolute;inset:0;box-shadow:inset 0 0 0 1px rgba(244,241,234,.07);pointer-events:none}
+.frame .cap{display:flex;gap:14px;margin-top:16px;align-items:baseline}
+.frame .cap b{flex:0 0 auto;font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--em);font-weight:400;padding-top:3px}
+.frame .cap p{font-family:var(--serif);font-size:18.5px;line-height:1.42;color:var(--ink-dim)}
+.frame .cap p.hidden-cap{color:var(--muted);font-style:italic;cursor:pointer;user-select:none}
+.frame .cap p.hidden-cap::after{content:' ⌁';color:var(--gold);font-size:12px}
+.frame .cap p.hidden-cap.open{color:var(--ink-dim);font-style:normal}
+.frame .cap p.hidden-cap.open::after{content:''}
+
+/* ============================================================
+   3 / REASONS
+   ============================================================ */
+#reasons{cursor:pointer;justify-content:space-between;text-align:center}
+#reasons .top{padding-top:6px}
+#rCount{font-family:var(--serif);font-size:15px;color:var(--gold);letter-spacing:.3em}
+#rBody{flex:1;display:flex;align-items:center;justify-content:center;padding:26px 4px}
+#rText{font-family:var(--serif);font-size:clamp(25px,6.6vw,34px);line-height:1.34;font-weight:300;letter-spacing:-.01em;max-width:19ch;margin:0 auto}
+#rText.swap{animation:swapIn .78s var(--ease)}
+@keyframes swapIn{0%{opacity:0;transform:translateY(20px) scale(.985);filter:blur(5px)}100%{opacity:1;transform:none;filter:blur(0)}}
+#rText .strike{position:relative;display:inline}
+#rText .strike::after{content:'';position:absolute;left:-2px;top:52%;height:1.5px;width:0;background:var(--gold);animation:strike .55s var(--ease) .5s forwards}
+@keyframes strike{to{width:calc(100% + 4px)}}
+#rNot{display:block;margin-top:16px;font-size:14px;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);opacity:0;font-family:var(--sans);animation:fadeUp .5s ease .95s forwards}
+#rDots{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;max-width:280px;margin:0 auto 10px}
+#rDots i{width:4px;height:4px;border-radius:50%;background:rgba(244,241,234,.16);transition:.4s var(--ease)}
+#rDots i.on{background:var(--em);transform:scale(1.3)}
+#rHint{font-size:9.5px;letter-spacing:.28em;text-transform:uppercase;color:var(--muted)}
+
+/* ============================================================
+   4 / MAP
+   ============================================================ */
+#map .head{text-align:center;padding-bottom:18px}
+#map h2{font-family:var(--serif);font-size:34px;font-weight:300}
+#map .head p{margin-top:10px;font-size:12.5px;color:var(--muted)}
+#views{display:flex;gap:6px;justify-content:center;margin-bottom:14px;flex-wrap:wrap}
+.viewbtn{
+  appearance:none;border:1px solid var(--line);background:transparent;color:var(--muted);
+  font-family:var(--sans);font-size:9px;letter-spacing:.2em;text-transform:uppercase;
+  padding:9px 15px;border-radius:100px;cursor:pointer;transition:.28s var(--ease);
+}
+.viewbtn.on{border-color:var(--em);color:var(--em-soft)}
+#lmap{
+  width:100%;height:56vh;min-height:320px;max-height:480px;
+  border:1px solid var(--line);border-radius:4px;background:var(--bg-2);
+}
+/* turns the light OSM tiles into a dark map. only the tiles. markers,
+   labels and controls sit in other panes and stay untouched.
+   with a CARTO key the tiles are already dark, so body.rawtiles skips it. */
+.leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.86) contrast(.9) saturate(.5)}
+body.rawtiles .leaflet-tile-pane{filter:none}
+#tileWarn{margin-top:12px;font-size:11px;line-height:1.6;color:var(--muted);text-align:center}
+.leaflet-container{background:#0d0d10!important;font-family:var(--sans)!important}
+.leaflet-control-attribution{background:rgba(10,10,12,.7)!important;color:#55534f!important;font-size:8px!important}
+.leaflet-control-attribution a{color:#6e6b65!important}
+.leaflet-control-zoom a{background:rgba(16,16,21,.92)!important;color:var(--ink-dim)!important;border-color:var(--line)!important}
+.dotwrap{width:34px;height:34px;display:grid;place-items:center;cursor:pointer}
+.dot{position:relative;pointer-events:none}
+.dot b{
+  display:block;pointer-events:none;width:9px;height:9px;border-radius:50%;
+  background:var(--em-soft);
+  box-shadow:0 0 0 4px rgba(62,167,122,.18),0 0 14px rgba(62,167,122,.8);
+  transition:transform .3s var(--ease);
+}
+.dot.next b{background:var(--gold);box-shadow:0 0 0 4px rgba(201,169,97,.18),0 0 14px rgba(201,169,97,.7)}
+.dot.on b{transform:scale(1.7)}
+#pinCard{margin:18px auto 0;max-width:460px;min-height:86px;border-left:1px solid var(--gold);padding:4px 0 4px 16px}
+#pinCard h4{font-size:9.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);font-weight:400;margin-bottom:9px}
+#pinCard p{font-family:var(--serif);font-size:19px;line-height:1.45;color:var(--ink-dim)}
+#pinCard p .redact{background:var(--ink-dim);color:transparent;border-radius:2px;cursor:pointer;transition:.3s ease;user-select:none}
+#pinCard p .redact.open{background:transparent;color:var(--ink-dim)}
+#clockline{margin:22px auto 0;text-align:center;font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--muted)}
+#clockline b{color:var(--gold);font-weight:400;font-size:13px;font-family:var(--serif);letter-spacing:.1em}
+#fallbackList{display:none}
+#fallbackList .row{border-bottom:1px solid var(--line);padding:16px 2px;cursor:pointer}
+#fallbackList .row b{display:block;font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--em);font-weight:400;margin-bottom:6px}
+#fallbackList .row span{font-family:var(--serif);font-size:18px;color:var(--ink-dim);line-height:1.4}
+
+/* ============================================================
+   5 / VOUCHERS
+   ============================================================ */
+#vouchers .head{text-align:center;padding:4px 0 30px}
+#vouchers h2{font-family:var(--serif);font-size:34px;font-weight:300}
+#vouchers .head p{margin-top:12px;font-size:12.5px;color:var(--muted);line-height:1.6}
+
+.vch{
+  position:relative;width:100%;margin-bottom:16px;cursor:pointer;
+  border:1px solid rgba(201,169,97,.28);
+  border-radius:5px;
+  background:linear-gradient(150deg,rgba(201,169,97,.075),rgba(16,16,21,.9) 62%);
+  padding:22px 20px 20px;
+  transition:.3s var(--ease);
+  overflow:hidden;
+}
+.vch:active{transform:scale(.985);border-color:var(--gold)}
+.vch::before,.vch::after{
+  content:'';position:absolute;width:15px;height:15px;border-radius:50%;
+  background:var(--bg);top:50%;margin-top:-7.5px;
+}
+.vch::before{left:-8px}
+.vch::after{right:-8px}
+.vch .qty{
+  font-family:var(--serif);font-size:11px;letter-spacing:.3em;
+  color:var(--gold);text-transform:uppercase;margin-bottom:10px;
+}
+.vch h5{font-family:var(--serif);font-size:25px;font-weight:300;line-height:1.16;color:var(--ink);letter-spacing:-.01em}
+.vch .foot{
+  display:flex;justify-content:space-between;align-items:center;gap:12px;
+  margin-top:18px;padding-top:14px;border-top:1px dashed rgba(201,169,97,.26);
+}
+.vch .sn{font-size:8.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}
+.vch .go{font-size:8.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--gold)}
+
+/* ============================================================
+   6 / LETTER
+   ============================================================ */
+#letter .wrap{max-width:32rem;margin:0 auto;padding:8px 0 30px}
+#letter .eyebrow{text-align:center}
+#letter .to{font-family:var(--serif);font-size:30px;font-weight:300;margin-bottom:30px}
+#letter p{
+  font-family:var(--serif);font-size:19.5px;line-height:1.72;color:var(--ink-dim);
+  margin-bottom:24px;opacity:0;transform:translateY(16px);
+  transition:opacity .9s var(--ease),transform .9s var(--ease);white-space:pre-line;
+}
+#letter p.seen{opacity:1;transform:none}
+#letter .sign{margin-top:40px;font-family:var(--serif);font-style:italic;font-size:22px;color:var(--ink)}
+
+/* ============================================================
+   7 / CLOSE
+   ============================================================ */
+#close .mono{font-family:var(--serif);font-size:clamp(66px,23vw,116px);letter-spacing:.1em;line-height:1;color:var(--ink);padding-left:.1em;cursor:pointer;user-select:none}
+#close .beat{display:inline-block;animation:beat 2.6s ease-in-out infinite;color:var(--em-soft)}
+@keyframes beat{0%,100%{transform:scale(1)}14%{transform:scale(1.14)}28%{transform:scale(1)}42%{transform:scale(1.09)}}
+#close .line{margin-top:28px;font-family:var(--serif);font-style:italic;font-size:19px;color:var(--ink-dim);line-height:1.55;max-width:24ch}
+#replay{appearance:none;margin-top:46px;border:1px solid var(--line);background:transparent;color:var(--muted);
+  font-family:var(--sans);font-size:9.5px;letter-spacing:.26em;text-transform:uppercase;padding:13px 26px;border-radius:100px;cursor:pointer}
+#secret{margin-top:30px;font-family:var(--serif);font-size:17px;font-style:italic;color:var(--gold);opacity:0;height:0;overflow:hidden;transition:opacity .8s ease;max-width:26ch;line-height:1.5}
+#secret.on{opacity:1;height:auto}
+
+/* ============================================================
+   SHEET (voucher detail)
+   ============================================================ */
+#sheet{
+  position:fixed;inset:0;z-index:70;background:rgba(6,6,8,.93);
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  display:flex;align-items:center;justify-content:center;padding:34px 24px;
+  opacity:0;visibility:hidden;transition:opacity .4s ease,visibility 0s linear .4s;
+  overflow-y:auto;
+}
+#sheet.open{opacity:1;visibility:visible;transition:opacity .4s ease}
+#sheet .ticket{
+  position:relative;max-width:30rem;width:100%;
+  border:1px solid rgba(201,169,97,.4);border-radius:6px;
+  background:linear-gradient(155deg,rgba(201,169,97,.09),rgba(12,12,15,.96) 60%);
+  padding:38px 28px 30px;text-align:center;
+  transform:translateY(20px) scale(.98);transition:transform .5s var(--ease);
+}
+#sheet.open .ticket{transform:none}
+#sheet .qty{font-family:var(--serif);font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:var(--gold);margin-bottom:14px}
+#sheet h5{font-family:var(--serif);font-size:30px;font-weight:300;line-height:1.16;color:var(--ink);margin-bottom:22px}
+#sheet .terms{font-family:var(--serif);font-size:18.5px;line-height:1.62;color:var(--ink-dim)}
+#sheet .redeem{
+  margin-top:26px;padding-top:20px;border-top:1px dashed rgba(201,169,97,.3);
+  font-size:11px;line-height:1.7;letter-spacing:.02em;color:var(--gold);
+}
+#sheet .sn{margin-top:16px;font-size:8.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}
+#sheet .close{margin-top:26px;font-size:9.5px;letter-spacing:.26em;text-transform:uppercase;color:var(--muted)}
+
+.spark{position:fixed;width:5px;height:5px;border-radius:50%;background:var(--em-soft);pointer-events:none;z-index:80;animation:sparkOut .9s ease-out forwards}
+@keyframes sparkOut{0%{opacity:.9;transform:scale(1)}100%{opacity:0;transform:scale(.2) translateY(-24px)}}
+
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.12s!important}
+  .frame,#letter p{opacity:1!important;transform:none!important}
+  body::after{display:none}
+}
+</style>
+</head>
+<body>
+
+<div id="scrimTop"></div>
+<div id="scrimBot"></div>
+<div id="rail"></div>
+<div id="stage"></div>
+
+<div id="nav">
+  <button class="navbtn" id="prev" aria-label="Back">‹</button>
+  <div id="navlabel"></div>
+  <button class="navbtn" id="next" aria-label="Next">›</button>
+</div>
+
+<div id="sheet">
+  <div class="ticket">
+    <div class="qty" id="sQty"></div>
+    <h5 id="sTitle"></h5>
+    <div class="terms" id="sTerms"></div>
+    <div class="redeem">Screenshot this and send it to me to redeem.</div>
+    <div class="sn" id="sSn"></div>
+    <div class="close">tap anywhere to close</div>
+  </div>
+</div>
+
+<script src="vendor/leaflet.js"></script>
+<script>
+/* ==============================================================
+   ✎ EVERYTHING YOU NEED TO EDIT IS IN THIS BLOCK.
+   ============================================================== */
+
+const CONTENT = {
+
+  initials : 'GRC',
+  name     : 'Grace',
+  birthday : '21 September 2000',
+  turning  : 26,
+
+  /* ── MAP TILES ──────────────────────────────────────────────
+     Leave mapKey as '' and the map uses OpenStreetMap (free, no key),
+     inverted to dark by CSS.
+     Paste a free CARTO key in here instead and it automatically
+     switches to CARTO's proper dark basemap. Nothing else to change. */
+  mapKey : 'cb1_3pe0_1_5d6e45f2620989b6000fcf63',
+
+  /* change this when you book the flights. format YYYY-MM-DD */
+  countdownTo    : '2027-05-01',
+  countdownLabel : 'days until Vietnam',
+
+  /* -- ✎ THE LETTER / draft. edit freely. -------------------- */
+  letter : [
+`I've been trying to work out how to start this, and everything I write sounds like a greeting card. So I'll just say the true thing. I noticed your eyes before I noticed anything else about you. That was the 25th of April, at Felons. I walked in that night with fairly low expectations and no real intention of opening up to anyone quickly. That's just how I am, or how I was. You undid all of that faster than I thought was possible, and I don't think I even noticed it happening at the time.`,
+
+`Five months later and I've lost count of most of it. More wine than either of us should put in writing. Spontaneous date nights that turned into entire weekends. Gym sessions, long walks, mountains, beaches, movie marathons, and an unreasonable number of Sundays that started with "we should do something" and ended somewhere neither of us had planned. None of it felt like a big deal at the time. All of it is what I think about.`,
+
+`The things I like most about you aren't the fun ones, though. It's how you are with your family, and with GMA. It's that you do a job most people couldn't do and still find something to laugh about at the end of it. It's that you notice what someone's feeling before they've noticed it themselves. You're a genuinely good person, Grace, and I don't think you give yourself anywhere near enough credit for it.`,
+
+`And if that's what we've managed in five months, I can't really get my head around the next five. Somewhere overseas. An apartment with both our names on it. Maybe a pet, if you play your cards right. The world's our oyster, GRC. And I'm just glad this is the first of your birthdays I get to do, and nowhere near the last.`
+  ],
+  letterSignoff : 'All my love,\nHarry',
+
+  /* -- ✎ SECRET / triple-tap GRC on the last screen ---------- */
+  secret : `[ WRITE HERE: one hidden line, just for her. Or delete this and the tap does nothing. ]`,
+
+  /* -- the 26 ------------------------------------------------- */
+  reasons : [
+    'I love that the first thing I ever noticed about you was your eyes. Ridiculous, unreasonable green.',
+    'I love your laugh.',
+    'I love your smile.',
+    'I love that we have never once been in an Uber without giving the driver a show.',
+    'I love that three or four drinks into our first date it already felt like our tenth. Sparks flew, genuinely.',
+    'I love that on our first date you told me you\'re like a pig rolling in mud, and then spent five months proving it.',
+    'I love that you harassed a stranger\'s puppy on that same date.',
+    'I love your impression of me. <em>"Wah wah wah, my name\'s Harry and I know nothing about nothing."</em> Nobody else on earth finds it funny. I think it\'s the funniest thing you do.',
+    { not:'I love your Kath and Kim voice.' },
+    'I love that you give me a full fashion show of outfit choices before we go anywhere.',
+    'I love that our answer to absolutely everything is two bottles of wine, or a visit to the Regatta.',
+    'I love that we drove to Kmart at 5pm on a Sunday because we\'d decided, that day, that we needed a poker set.',
+    'I love that I took you to the footy and spent the night third-wheeling with a Reece Walsh bobble head.',
+    'I love that you did Mt Maroon with me and still spoke to me afterwards.',
+    { not:'I love that a whole bottle of wine at the movies still couldn\'t keep you awake.' },
+    'I love that you snore. Little piggy.',
+    'I love lying in bed with you watching simnims.',
+    'I love that you can do a full week of work, gym and sobriety, and then absolutely obliterate a weekend. Genuinely impressive range.',
+    'I love the way you lock in when you\'re playing bingo with GMA.',
+    'I love the way you love your people. Especially your family. Especially especially GMA.',
+    'I love that you facetimed me from an airport in Hong Kong.',
+    'I love how much thought you put into my birthday. Oinking happy birthday at me, a staycation booked, breakfast, a fancy dinner. So much thought.',
+    'I love that you know what someone\'s feeling before they\'ve worked it out themselves.',
+    'I love that you\'ve still got a sense of humour, doing the job you do.',
+    'I love that you\'re the first person I want to tell things to.',
+    'I love that this is only the first birthday of yours I get to do.'
+  ],
+
+  /* -- the photos --------------------------------------------- */
+  /* hide:true = caption blurred until she presses and holds it */
+  shots : [
+    { f:'01.jpg', d:'25 Apr', c:'The night we met. Keeping the Uber driver on his toes.' },
+    { f:'02.jpg', d:'25 Apr', c:'Moments before a Long Island Iced Tea hit the floor.' },
+    { f:'03.jpg', d:'25 Apr', c:'Found a puppy. Harassed the puppy.' },
+    { f:'04.jpg', d:'5 May',  c:'A quick sneak-away work lunch.' },
+    { f:'05.jpg', d:'9 May',  c:'Second date. Disabled toilets beware.', hide:true },
+    { f:'06.jpg', d:'12 May', c:'Wine AND vaping at the Regatta. Seriously, what is new.' },
+    { f:'07.jpg', d:'24 May', c:'Our first hike together. Mt Maroon.' },
+    { f:'08.jpg', d:'27 May', c:'Origin night. Hump day beer jugs and pokies.' },
+    { f:'09.jpg', d:'28 May', c:'A bottle of wine at the movies. Still didn\'t keep you awake.' },
+    { f:'10.jpg', d:'31 May', c:'First NRL game. Me, third-wheeling with Reece Walsh.' },
+    { f:'12.jpg', d:'2 Jun',  c:'Birthday dinner at Honto. Then the casino, obviously.' },
+    { f:'13.jpg', d:'6 Jun',  c:'Wine at the Regatta. What\'s new.' },
+    { f:'14.jpg', d:'17 Jun', c:'Dropping you at the airport before Europe.' },
+    { f:'15.jpg', d:'17 Jun', c:'Facetiming you from an airport in Hong Kong.' },
+    { f:'16.jpg', d:'Undated', c:'Me in Paris with you. I was at home.' },
+    { f:'17.jpg', d:'12 Jul', c:'Picking you up. Finally.' },
+    { f:'18.jpg', d:'17 Jul', c:'Waiting on a fancy dinner reservation.' },
+    { f:'19.jpg', d:'17 Jul', c:'Fancy hotel. Fancy dinner. Dressed up fancy.' },
+    { f:'20.jpg', d:'17 Jul', c:'Getting freaky in da hotel.', hide:true },
+    { f:'21.jpg', d:'2 Aug',  c:'A full fashion show before we went out.' },
+    { f:'22.jpg', d:'2 Aug',  c:'Smashing wine at the Brunswick. Standard Sunday.' },
+    { f:'23.jpg', d:'16 Aug', c:'Driving to Kmart at 5pm on a Sunday for a poker set and a card shuffler.' },
+    { f:'24.jpg', d:'29 Aug', c:'Boat party.' },
+    { f:'25.jpg', d:'30 Aug', c:'Bingo with GMA.' }
+  ],
+
+  /* -- ✎ THE VOUCHERS ----------------------------------------- */
+  vouchers : [
+    { qty:'One (1)', sn:'GRC-01',
+      title:'Free homemade dinner',
+      terms:'Your choice of any style of homemade dinner, or leave it up to the chef\'s choice. Redeemable at any time. One time use.' },
+
+    { qty:'One (1)', sn:'GRC-02',
+      title:'Free dinner date',
+      terms:'Restaurant of your choice, or leave it up to the self-proclaimed restauranteur to decide. All expenses paid.' },
+
+    { qty:'One (1)', sn:'GRC-03',
+      title:'Full body massage',
+      terms:'Full body, or a specified section of the body. Oil optional.' },
+
+    { qty:'One (1)', sn:'GRC-04',
+      title:'Movie of your choice',
+      terms:'Force me to watch a movie you love, that you probably think I\'d hate. A great chance to change my mind.' },
+
+    { qty:'One (1)', sn:'GRC-05',
+      title:'Argument winner',
+      terms:'Pull this card out to win any argument, instantly. No questions asked, no right of appeal.' },
+
+    { qty:'Five (5)', sn:'GRC-06',
+      title:'Dis and Dat',
+      terms:'You know what this one is. Redeemable at any time, any position, and any style.' }
+  ],
+
+  /* -- the map ------------------------------------------------ */
+  /* lat/lng are real. next:true = gold pin, somewhere we're going */
+  pins : [
+    { la:-27.4614, ln:153.0336, n:'Felons Brewing Co', city:true,      t:'Where it started. 25 April, and I had no idea.' },
+    { la:-27.4584, ln:153.0343, n:'Music City', city:true,             t:'Karaoke. No further questions.' },
+    { la:-27.4747, ln:153.0295, n:'Riverland', city:true,              t:'Where I dropped a Long Island Iced Tea directly onto your foot.' },
+    { la:-27.4732, ln:153.0208, n:'Queen\'s Wharf', city:true,         t:'Where I lost money, and where we <span class="redact">serviced the disabled bathroom</span>.' },
+    { la:-27.4846, ln:152.9987, n:'The Regatta', city:true,            t:'Ours. Including the Mexican standoff with thirty uni lads.' },
+    { la:-27.5836, ln:153.0966, n:'The Glen Hotel', city:true,         t:'First proper pub dinner. One bottle of wine, and I was sold.' },
+    { la:-27.4925, ln:152.9852, n:'Jetts Taringa', city:true,          t:'Where we go to pretend the Regatta didn\'t happen.' },
+    { la:-27.5573, ln:153.0808, n:'Jetts Upper Mt Gravatt', city:true, t:'The other one. Same penance, different postcode.' },
+    { la:-28.2287, ln:152.6975, n:'Mt Maroon',              t:'First hike together. You did not complain once, which I respected.' },
+    { la:-28.2789, ln:152.7003, n:'Mt Barney',              t:'Second hike. Still friends, somehow.' },
+    { la:-28.1966, ln:153.5573, n:'Fingal Head',            t:'First beach day. Best day.' },
+    { la:-16.9218, ln:145.7755, n:'Crystalbrook Vincent',   t:'Cairns. Our first baecation, and where I put my head through a TV and exploded my pinky toe. Great memories.' },
+
+    { la:-23.0264, ln:148.1731, n:'Tieri',        next:true, t:'Christmas. You, me, and the entire family at once. Sorry in advance.' },
+    { la:-23.4423, ln:151.9148, n:'Heron Island', next:true, t:'On the way home. The reef, and no phone signal.' },
+    { la:10.8231,  ln:106.6297, n:'Vietnam',  next:true, t:'Three weeks in May starts here. No plan yet beyond the flights.' },
+    { la:13.7563,  ln:100.5018, n:'Thailand', next:true, t:'Somewhere in the middle of it.' },
+    { la:3.1390,   ln:101.6869, n:'Malaysia', next:true, t:'And the last leg. Or the first. We haven\'t decided anything yet.' }
+  ]
+};
+
+/* ==============================================================
+   ↓ machinery
+   ============================================================== */
+
+const $ = (s,r=document)=>r.querySelector(s);
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const stage = $('#stage');
+function el(html){ const d=document.createElement('div'); d.innerHTML=html.trim(); return d.firstElementChild; }
+const CH = [];
+function chapter(id, cls, html, label){
+  const s = el(`<section class="chapter ${cls}" id="${id}">${html}</section>`);
+  stage.appendChild(s);
+  CH.push({id, node:s, label});
+  return s;
+}
+
+/* 0 / gate */
+chapter('gate','centred',`
+  <div class="mono">${CONTENT.initials.split('').map(c=>`<span>${c}</span>`).join('')}</div>
+  <div class="sub">a small thing, made for you</div>
+  <div class="tap">tap to open</div>
+`,'');
+
+/* 1 / hello */
+chapter('hello','',`
+  <div class="shot"></div>
+  <div class="veil"></div>
+  <div class="dust" id="dust"></div>
+  <div class="words">
+    <h1>Happy birthday,<br><em>${CONTENT.name}</em>.</h1>
+    <div class="meta"><span>${CONTENT.birthday}</span><s></s><b>${CONTENT.turning} years</b></div>
+  </div>
+`,'five months');
+
+/* 2 / timeline */
+chapter('story','scrolls',`
+  <div class="head">
+    <div class="eyebrow">chapter one</div>
+    <h2>Five months.</h2>
+    <p>25 April to now. We have not wasted a single weekend.</p>
+  </div>
+  ${CONTENT.shots.map((s,i)=>`
+    <div class="frame" data-i="${i}">
+      <div class="pic"><img data-src="img/${s.f}" alt="" loading="lazy"></div>
+      <div class="cap">
+        <b>${s.d}</b>
+        <p class="${s.hide?'hidden-cap':''}">${s.hide?'press and hold':s.c}</p>
+      </div>
+    </div>`).join('')}
+  <div style="text-align:center;padding:10px 0 20px">
+    <div class="rule"></div>
+    <p style="font-family:var(--serif);font-style:italic;font-size:19px;color:var(--ink-dim)">And that's only the bit we photographed.</p>
+  </div>
+`,'the 26');
+
+/* 3 / reasons */
+chapter('reasons','',`
+  <div class="top"><div class="eyebrow" style="margin-bottom:10px">chapter two</div><div id="rCount">01 / ${CONTENT.reasons.length}</div></div>
+  <div id="rBody"><div id="rText"></div></div>
+  <div style="text-align:center">
+    <div id="rDots">${CONTENT.reasons.map(()=>'<i></i>').join('')}</div>
+    <div id="rHint">tap anywhere</div>
+  </div>
+`,'the map');
+
+/* 4 / map */
+chapter('map','scrolls',`
+  <div class="head">
+    <div class="eyebrow">chapter three</div>
+    <h2>Everywhere we've been.</h2>
+    <p>And the five we haven't yet. Tap a light.</p>
+  </div>
+  <div id="views">
+    <button class="viewbtn on" data-v="bne">Brisbane</button>
+    <button class="viewbtn" data-v="all">Everywhere</button>
+    <button class="viewbtn" data-v="next">What's next</button>
+  </div>
+  <div id="lmap"></div>
+  <div id="fallbackList"></div>
+  <div id="pinCard"><h4>Seventeen places</h4><p>Twelve we've been, five we're going. Green is done, gold is coming.</p></div>
+  <div id="clockline"><b id="clockN"></b> ${CONTENT.countdownLabel}</div>
+`,'the vouchers');
+
+/* 5 / vouchers */
+chapter('vouchers','scrolls',`
+  <div class="head">
+    <div class="eyebrow">chapter four</div>
+    <h2>Redeemable.</h2>
+    <p>No expiry. No conditions beyond the ones printed.</p>
+  </div>
+  ${CONTENT.vouchers.map((v,i)=>`
+    <div class="vch" data-i="${i}">
+      <div class="qty">${v.qty}</div>
+      <h5>${v.title}</h5>
+      <div class="foot"><span class="sn">No. ${v.sn}</span><span class="go">tap to view →</span></div>
+    </div>`).join('')}
+  <div style="height:16px"></div>
+`,'the letter');
+
+/* 6 / letter */
+chapter('letter','scrolls',`
+  <div class="wrap">
+    <div class="eyebrow">chapter five</div>
+    <div class="to">${CONTENT.name},</div>
+    ${CONTENT.letter.map(p=>`<p>${p}</p>`).join('')}
+    <div class="sign">${CONTENT.letterSignoff.replace(/\n/g,'<br>')}</div>
+    <div style="height:30px"></div>
+  </div>
+`,'');
+
+/* 7 / close */
+chapter('close','centred',`
+  <div class="mono" id="monoClose">${CONTENT.initials.replace('R','<span class="beat">R</span>')}</div>
+  <div class="line">You can come back to this whenever you want.</div>
+  <div id="secret">${CONTENT.secret}</div>
+  <button id="replay">from the top</button>
+`,'');
+
+/* --- rail ---------------------------------------------------- */
+const rail = $('#rail');
+rail.innerHTML = CH.map(()=>'<i><b></b></i>').join('');
+const railSegs = [...rail.children];
+
+/* --- router -------------------------------------------------- */
+let idx = 0;
+const navEl=$('#nav'), prevB=$('#prev'), nextB=$('#next'), navLabel=$('#navlabel');
+
+function go(n){
+  if(n<0 || n>=CH.length) return;
+  CH[idx].node.classList.remove('live');
+  idx = n;
+  const to = CH[idx];
+  to.node.classList.add('live');
+  if(to.node.classList.contains('scrolls')) to.node.scrollTop = 0;
+
+  railSegs.forEach((s,i)=>{
+    s.classList.toggle('done', i<idx);
+    s.classList.toggle('at', i===idx);
+  });
+  rail.classList.toggle('show', idx>0 && idx<CH.length-1);
+  document.body.classList.toggle('scrim', to.node.classList.contains('scrolls'));
+  navEl.classList.toggle('show', idx>0);
+  prevB.disabled = idx<=1;
+  nextB.disabled = idx>=CH.length-1;
+  navLabel.textContent = (idx>=CH.length-1) ? '' : (CH[idx].label || '');
+
+  onEnter(to.id);
+}
+prevB.addEventListener('click',e=>{e.stopPropagation();go(idx-1)});
+nextB.addEventListener('click',e=>{e.stopPropagation();go(idx+1)});
+
+/* --- swipe (ignored inside the map) --------------------------- */
+let sx=0, sy=0, tracking=false;
+addEventListener('touchstart',e=>{
+  if(e.touches.length!==1){ tracking=false; return; }
+  if(e.target.closest && e.target.closest('#lmap')){ tracking=false; return; }
+  sx=e.touches[0].clientX; sy=e.touches[0].clientY; tracking=true;
+},{passive:true});
+addEventListener('touchend',e=>{
+  if(!tracking) return; tracking=false;
+  if($('#sheet').classList.contains('open')) return;
+  const t=e.changedTouches[0], dx=t.clientX-sx, dy=t.clientY-sy;
+  if(Math.abs(dx)>64 && Math.abs(dx)>Math.abs(dy)*1.6){
+    if(idx===0) return;
+    go(dx<0 ? idx+1 : idx-1);
+  }
+},{passive:true});
+addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight') go(idx+1);
+  if(e.key==='ArrowLeft') go(idx-1);
+});
+
+$('#gate').addEventListener('click',()=>go(1));
+
+/* --- gold dust ----------------------------------------------- */
+function dust(){
+  const host=$('#dust'); if(!host||host.dataset.on||REDUCED) return;
+  host.dataset.on='1';
+  for(let i=0;i<26;i++){
+    const d=document.createElement('i');
+    d.style.left=Math.random()*100+'%';
+    d.style.bottom=(-10-Math.random()*20)+'%';
+    d.style.animationDuration=(11+Math.random()*13)+'s';
+    d.style.animationDelay=(Math.random()*9)+'s';
+    d.style.opacity=.3+Math.random()*.5;
+    host.appendChild(d);
+  }
+}
+
+/* --- reveal inside scrolling chapters ------------------------ */
+function watchIn(sectionId){
+  const sec = $('#'+sectionId);
+  const obs = new IntersectionObserver(es=>{
+    es.forEach(e=>{
+      if(!e.isIntersecting) return;
+      e.target.classList.add('seen');
+      const img=e.target.querySelector && e.target.querySelector('img[data-src]');
+      if(img){ img.src=img.dataset.src; img.removeAttribute('data-src'); img.addEventListener('load',()=>img.classList.add('up')); }
+      obs.unobserve(e.target);
+    });
+  },{root:sec,rootMargin:'400px 0px',threshold:0.01});
+  sec.querySelectorAll('.frame:not(.seen), p:not(.seen)').forEach(n=>obs.observe(n));
+}
+
+/* --- hidden captions ----------------------------------------- */
+let lpTimer=null;
+function revealCap(c){
+  if(!c || c.classList.contains('open')) return;
+  c.classList.add('open');
+  c.textContent = CONTENT.shots[+c.closest('.frame').dataset.i].c;
+  if(navigator.vibrate) navigator.vibrate(12);
+}
+document.addEventListener('touchstart',e=>{
+  const c=e.target.closest && e.target.closest('.hidden-cap');
+  if(!c) return;
+  lpTimer=setTimeout(()=>revealCap(c),480);
+},{passive:true});
+['touchend','touchmove','touchcancel'].forEach(ev=>document.addEventListener(ev,()=>clearTimeout(lpTimer),{passive:true}));
+document.addEventListener('click',e=>{
+  const c=e.target.closest && e.target.closest('.hidden-cap');
+  if(c) revealCap(c);
+});
+
+/* --- reasons ------------------------------------------------- */
+let rI=-1, rEnd=false;
+const rText=$('#rText'), rCount=$('#rCount'), rDots=$('#rDots'), rHint=$('#rHint');
+
+function reasonStep(){
+  if(rI >= CONTENT.reasons.length-1){
+    if(rEnd) return;
+    rEnd = true;
+    rText.innerHTML = `…and I could keep going.`;
+    rText.classList.remove('swap'); void rText.offsetWidth; rText.classList.add('swap');
+    rHint.style.opacity='0';
+    return;
+  }
+  rI++;
+  const r = CONTENT.reasons[rI];
+  const isNot = typeof r === 'object';
+  const body = isNot ? r.not : r;
+  rText.innerHTML = isNot ? `<span class="strike">${body}</span><span id="rNot">(not)</span>` : body;
+  rText.classList.remove('swap'); void rText.offsetWidth; rText.classList.add('swap');
+  rCount.textContent = String(rI+1).padStart(2,'0') + ' / ' + CONTENT.reasons.length;
+  [...rDots.children].forEach((d,i)=>d.classList.toggle('on',i<=rI));
+  if(navigator.vibrate && !REDUCED) navigator.vibrate(6);
+}
+$('#reasons').addEventListener('click',reasonStep);
+
+/* --- map ----------------------------------------------------- */
+const pinCard=$('#pinCard');
+let lmap=null, markers=[], curView='bne';
+
+function showPin(i, markerEl){
+  document.querySelectorAll('.dot').forEach(d=>d.classList.remove('on'));
+  if(markerEl) markerEl.classList.add('on');
+  const d=CONTENT.pins[i];
+  pinCard.innerHTML=`<h4>${d.n}</h4><p>${d.t}</p>`;
+  const r=pinCard.querySelector('.redact');
+  if(r) r.addEventListener('click',()=>r.classList.add('open'));
+  if(navigator.vibrate) navigator.vibrate(8);
+}
+
+function buildMap(){
+  if(lmap || typeof L === 'undefined') return;
+  lmap = L.map('lmap',{zoomControl:true, attributionControl:true, scrollWheelZoom:false});
+  /* Tile sources, tried in order. CARTO's dark basemap is the nicest, but if
+     it 404s or the network blocks it the map silently drops to the next one
+     rather than showing an empty box. `invert` means it's a light-coloured
+     map that the CSS filter flips to dark. */
+  const k = (CONTENT.mapKey||'').trim();
+  const CARTO_ATTR = '&copy; OpenStreetMap contributors &copy; CARTO';
+  const SOURCES = k ? [
+    { url:'https://basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png?key='+encodeURIComponent(k),
+      attr:CARTO_ATTR, invert:false },
+    { url:'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key='+encodeURIComponent(k),
+      attr:CARTO_ATTR, invert:true },
+    { url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+      attr:'&copy; OpenStreetMap contributors', invert:true }
+  ] : [
+    { url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+      attr:'&copy; OpenStreetMap contributors', invert:true }
+  ];
+
+  let srcI = -1, active = null;
+  function useSource(i){
+    if(i >= SOURCES.length){ tileWarn(); return; }
+    srcI = i;
+    const src = SOURCES[i];
+    if(active) lmap.removeLayer(active);
+    document.body.classList.toggle('rawtiles', !src.invert);
+    active = L.tileLayer(src.url,{ attribution:src.attr, maxZoom:19 });
+    let fails = 0;
+    active.on('tileerror',()=>{
+      if(++fails === 4 && srcI === i) useSource(i+1);
+    });
+    active.addTo(lmap);
+  }
+  function tileWarn(){
+    if(document.getElementById('tileWarn')) return;
+    const w=document.createElement('div');
+    w.id='tileWarn';
+    w.textContent="Map tiles couldn't load on this network, but the pins below still work.";
+    document.getElementById('lmap').insertAdjacentElement('afterend',w);
+  }
+  useSource(0);
+
+  CONTENT.pins.forEach((p,i)=>{
+    /* 34px wrapper so it's actually tappable with a thumb */
+    const icon = L.divIcon({
+      className:'',
+      html:`<div class="dotwrap"><div class="dot ${p.next?'next':''}"><b></b></div></div>`,
+      iconSize:[34,34], iconAnchor:[17,17]
+    });
+    const m = L.marker([p.la,p.ln],{icon}).addTo(lmap);
+    m.on('click',()=>showPin(i, m.getElement() && m.getElement().querySelector('.dot')));
+    markers.push(m);
+  });
+}
+
+function setView(v){
+  if(!lmap) return;
+  curView = v;
+  /* bne = pins tagged city:true. Cairns is north of Brisbane, so a
+     latitude filter silently includes it and blows out the zoom */
+  const pick = v==='bne'  ? CONTENT.pins.filter(p=>p.city)
+             : v==='next' ? CONTENT.pins.filter(p=>p.next)
+             : CONTENT.pins.filter(p=>!p.next);
+  const b = L.latLngBounds(pick.map(p=>[p.la,p.ln]));
+  lmap.fitBounds(b,{padding:[46,46], maxZoom: v==='bne'?14:9});
+}
+
+document.querySelectorAll('.viewbtn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.viewbtn').forEach(b=>b.classList.remove('on'));
+    btn.classList.add('on');
+    setView(btn.dataset.v);
+  });
+});
+
+/* if leaflet never loads, fall back to a tappable list */
+function mapFallback(){
+  $('#lmap').style.display='none';
+  $('#views').style.display='none';
+  const fb=$('#fallbackList');
+  fb.style.display='block';
+  fb.innerHTML = CONTENT.pins.map((p,i)=>
+    `<div class="row" data-i="${i}"><b>${p.next?'coming up':'been'}</b><span>${p.n}</span></div>`).join('');
+  fb.querySelectorAll('.row').forEach(r=>r.addEventListener('click',()=>showPin(+r.dataset.i)));
+}
+
+/* --- countdown ----------------------------------------------- */
+function tick(){
+  const n=$('#clockN'); if(!n) return;
+  const then=new Date(CONTENT.countdownTo+'T00:00:00');
+  n.textContent = Math.max(0,Math.ceil((then-new Date())/86400000));
+}
+tick(); setInterval(tick,3600000);
+
+/* --- vouchers ------------------------------------------------ */
+const sheet=$('#sheet');
+document.querySelectorAll('.vch').forEach(v=>{
+  v.addEventListener('click',()=>{
+    const d=CONTENT.vouchers[+v.dataset.i];
+    $('#sQty').textContent=d.qty;
+    $('#sTitle').textContent=d.title;
+    $('#sTerms').textContent=d.terms;
+    $('#sSn').textContent='No. '+d.sn;
+    sheet.classList.add('open');
+    if(navigator.vibrate) navigator.vibrate(10);
+  });
+});
+sheet.addEventListener('click',()=>sheet.classList.remove('open'));
+
+/* --- secret + replay ----------------------------------------- */
+let taps=0, tapTimer=null;
+$('#monoClose').addEventListener('click',()=>{
+  taps++; clearTimeout(tapTimer); tapTimer=setTimeout(()=>taps=0,700);
+  if(taps>=3){
+    $('#secret').classList.add('on'); taps=0;
+    if(navigator.vibrate) navigator.vibrate([10,40,10]);
+  }
+});
+$('#replay').addEventListener('click',e=>{
+  e.stopPropagation();
+  rI=-1; rEnd=false;
+  [...rDots.children].forEach(d=>d.classList.remove('on'));
+  rHint.style.opacity=''; rText.innerHTML='';
+  rCount.textContent='01 / '+CONTENT.reasons.length;
+  $('#secret').classList.remove('on');
+  go(0);
+});
+
+/* --- touch sparkle ------------------------------------------- */
+if(!REDUCED){
+  document.addEventListener('touchstart',e=>{
+    if(e.target.closest && e.target.closest('#lmap')) return;
+    const t=e.touches[0], s=document.createElement('div');
+    s.className='spark';
+    s.style.left=(t.clientX-2.5)+'px';
+    s.style.top=(t.clientY-2.5)+'px';
+    document.body.appendChild(s);
+    setTimeout(()=>s.remove(),900);
+  },{passive:true});
+}
+
+/* --- chapter entry ------------------------------------------- */
+const entered={};
+function onEnter(id){
+  if(id==='hello') dust();
+  if(id==='story'  && !entered.story ){ entered.story=1;  setTimeout(()=>watchIn('story'),60); }
+  if(id==='letter' && !entered.letter){ entered.letter=1; setTimeout(()=>watchIn('letter'),60); }
+  if(id==='reasons' && rI===-1) setTimeout(reasonStep,340);
+  if(id==='map'){
+    if(typeof L === 'undefined'){ if(!entered.map) mapFallback(); }
+    else {
+      buildMap();
+      /* the container only has its real size once the chapter is visible,
+         so size first, then fit, otherwise the bounds are computed against 0px */
+      setTimeout(()=>{ if(lmap){ lmap.invalidateSize(); setView(curView); } },300);
+    }
+    entered.map=1;
+  }
+}
+
+new Image().src='img/17.jpg';
+go(0);
+</script>
+</body>
+</html>
