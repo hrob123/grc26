@@ -9,6 +9,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<!-- both paths are listed so the page works whether the files were uploaded
+     inside folders (vendor/, img/) or all flat at the root. the one that
+     does not exist simply 404s and is ignored. -->
+<link rel="stylesheet" href="leaflet.css">
 <link rel="stylesheet" href="vendor/leaflet.css">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤍</text></svg>">
 <style>
@@ -159,7 +163,8 @@ body.scrim #scrimTop,body.scrim #scrimBot{opacity:1}
 #hello{padding:0!important;overflow:hidden}
 #hello .shot{
   position:absolute;inset:0;
-  background:url('img/17.jpg') center 42%/cover no-repeat;
+  background:url('17.jpg') center 42%/cover no-repeat,
+             url('img/17.jpg') center 42%/cover no-repeat;
   transform:scale(1.1);animation:slowPush 16s ease-out forwards;
 }
 @keyframes slowPush{to{transform:scale(1)}}
@@ -392,6 +397,7 @@ body.rawtiles .leaflet-tile-pane{filter:none}
   </div>
 </div>
 
+<script src="leaflet.js"></script>
 <script src="vendor/leaflet.js"></script>
 <script>
 /* ==============================================================
@@ -585,7 +591,7 @@ chapter('story','scrolls',`
   </div>
   ${CONTENT.shots.map((s,i)=>`
     <div class="frame" data-i="${i}">
-      <div class="pic"><img data-src="img/${s.f}" alt="" loading="lazy"></div>
+      <div class="pic"><img data-src="${s.f}" data-alt="img/${s.f}" alt="" loading="lazy"></div>
       <div class="cap">
         <b>${s.d}</b>
         <p class="${s.hide?'hidden-cap':''}">${s.hide?'press and hold':s.c}</p>
@@ -739,11 +745,25 @@ function watchIn(sectionId){
       if(!e.isIntersecting) return;
       e.target.classList.add('seen');
       const img=e.target.querySelector && e.target.querySelector('img[data-src]');
-      if(img){ img.src=img.dataset.src; img.removeAttribute('data-src'); img.addEventListener('load',()=>img.classList.add('up')); }
+      if(img) loadShot(img);
       obs.unobserve(e.target);
     });
   },{root:sec,rootMargin:'400px 0px',threshold:0.01});
   sec.querySelectorAll('.frame:not(.seen), p:not(.seen)').forEach(n=>obs.observe(n));
+}
+
+/* photos load from the flat path first; if that 404s we retry inside img/.
+   keeps the page working however the files were uploaded. */
+function loadShot(img){
+  const flat = img.dataset.src, nested = img.dataset.alt;
+  img.removeAttribute('data-src');
+  img.addEventListener('load',()=>img.classList.add('up'));
+  img.addEventListener('error',function onErr(){
+    if(img.dataset.retried) return;
+    img.dataset.retried='1';
+    img.src = nested;
+  });
+  img.src = flat;
 }
 
 /* --- hidden captions ----------------------------------------- */
@@ -966,6 +986,7 @@ function onEnter(id){
   }
 }
 
+new Image().src='17.jpg';
 new Image().src='img/17.jpg';
 go(0);
 </script>
