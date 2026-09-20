@@ -527,23 +527,24 @@ const CONTENT = {
   /* lat/lng are real. next:true = gold pin, somewhere we're going */
   pins : [
     { la:-27.4614, ln:153.0336, n:'Felons Brewing Co', city:true,      t:'Where it started. 25 April, and I had no idea.' },
-    { la:-27.4584, ln:153.0343, n:'Music City', city:true,             t:'Karaoke. No further questions.' },
+    { la:-27.4584, ln:153.0343, n:'Music City', city:true, dx:4, dy:18,             t:'Karaoke. No further questions.' },
     { la:-27.4747, ln:153.0295, n:'Riverland', city:true,              t:'Where I dropped a Long Island Iced Tea directly onto your foot.' },
     { la:-27.4732, ln:153.0208, n:'Queen\'s Wharf', city:true,         t:'Where I lost money, and where we <span class="redact">serviced the disabled bathroom</span>.' },
     { la:-27.4846, ln:152.9987, n:'The Regatta', city:true,            t:'Ours. Including the Mexican standoff with thirty uni lads.' },
-    { la:-27.5836, ln:153.0966, n:'The Glen Hotel', city:true,         t:'First proper pub dinner. One bottle of wine, and I was sold.' },
+    { la:-27.5836, ln:153.0966, n:'The Glen Hotel',         t:'First proper pub dinner. One bottle of wine, and I was sold.' },
     { la:-27.4925, ln:152.9852, n:'Jetts Taringa', city:true,          t:'Where we go to pretend the Regatta didn\'t happen.' },
-    { la:-27.5573, ln:153.0808, n:'Jetts Upper Mt Gravatt', city:true, t:'The other one. Same penance, different postcode.' },
+    { la:-27.5573, ln:153.0808, n:'Jetts Upper Mt Gravatt', t:'The other one. Same penance, different postcode.' },
     { la:-28.2287, ln:152.6975, n:'Mt Maroon',              t:'First hike together. You did not complain once, which I respected.' },
     { la:-28.2789, ln:152.7003, n:'Mt Barney',              t:'Second hike. Still friends, somehow.' },
     { la:-28.1966, ln:153.5573, n:'Fingal Head',            t:'First beach day. Best day.' },
-    { la:-16.9218, ln:145.7755, n:'Crystalbrook Vincent',   t:'Cairns. Our first baecation, and where I put my head through a TV and exploded my pinky toe. Great memories.' },
+    { la:-27.4607, ln:153.0347, n:'Crystalbrook Vincent', city:true, dx:18, dy:-16,
+      t:'Our first baecation, about ten minutes from home. Also where I put my head through a TV and exploded my pinky toe. Great memories.' },
 
     { la:-23.0264, ln:148.1731, n:'Tieri',        next:true, t:'Christmas. You, me, and the entire family at once. Sorry in advance.' },
     { la:-23.4423, ln:151.9148, n:'Heron Island', next:true, t:'On the way home. The reef, and no phone signal.' },
-    { la:10.8231,  ln:106.6297, n:'Vietnam',  next:true, t:'Three weeks in May starts here. No plan yet beyond the flights.' },
-    { la:13.7563,  ln:100.5018, n:'Thailand', next:true, t:'Somewhere in the middle of it.' },
-    { la:3.1390,   ln:101.6869, n:'Malaysia', next:true, t:'And the last leg. Or the first. We haven\'t decided anything yet.' }
+    { la:10.8231,  ln:106.6297, n:'Vietnam',  next:true, t:'Our first international baecation. Three weeks in May.' },
+    { la:13.7563,  ln:100.5018, n:'Thailand', next:true, t:'Our first international baecation. Three weeks in May.' },
+    { la:3.1390,   ln:101.6869, n:'Malaysia', next:true, t:'Our first international baecation. Three weeks in May.' }
   ]
 };
 
@@ -870,10 +871,13 @@ function buildMap(){
 
   CONTENT.pins.forEach((p,i)=>{
     /* 34px wrapper so it's actually tappable with a thumb */
+    /* dx/dy shift the icon on screen only. the marker stays at its real
+       coordinates; this just stops two pins at the same address from
+       landing on top of each other at city zoom. */
     const icon = L.divIcon({
       className:'',
       html:`<div class="dotwrap"><div class="dot ${p.next?'next':''}"><b></b></div></div>`,
-      iconSize:[34,34], iconAnchor:[17,17]
+      iconSize:[34,34], iconAnchor:[17-(p.dx||0), 17+(p.dy||0)]
     });
     const m = L.marker([p.la,p.ln],{icon}).addTo(lmap);
     m.on('click',()=>showPin(i, m.getElement() && m.getElement().querySelector('.dot')));
@@ -884,8 +888,8 @@ function buildMap(){
 function setView(v){
   if(!lmap) return;
   curView = v;
-  /* bne = pins tagged city:true. Cairns is north of Brisbane, so a
-     latitude filter silently includes it and blows out the zoom */
+  /* bne = pins tagged city:true. tag them rather than filtering by
+     latitude, so a pin outside the box can never quietly blow out the zoom */
   const pick = v==='bne'  ? CONTENT.pins.filter(p=>p.city)
              : v==='next' ? CONTENT.pins.filter(p=>p.next)
              : CONTENT.pins.filter(p=>!p.next);
